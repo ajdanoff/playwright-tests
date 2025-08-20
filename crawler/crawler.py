@@ -12,6 +12,7 @@ import requests
 from playwright.async_api import Page, Playwright
 
 from crawler.html_parser import ImgHTMLParser
+from crawler.search_services import BingService, get_service_by_host
 
 
 class CrawlerType(str, Enum):
@@ -49,18 +50,21 @@ class ImagesCrawler(Crawler):
     _data_folder: str
     _robot_parser: RobotFileParser
     _crawl_delay: float = 0.0
+    _search_service: BingService
 
     def __init__(self, playwright: Playwright, page: Page, host, data_folder):
         Crawler.__init__(self, CrawlerType.IMAGES_CRAWLER)
         self._playwright = playwright
         self._page = page
-        self.playwright.selectors.set_test_id_attribute('data-bm')
+        self._search_service = get_service_by_host(page, host)
+
+        self.playwright.selectors.set_test_id_attribute(self.search_service.test_id_attr)
         self.ihp = ImgHTMLParser()
         self._host = host
         self._data_folder = data_folder
 
         self._robot_parser = RobotFileParser()
-        robots_url = self._get_robots_url(host)
+        robots_url = self._get_robots_url(self.search_service.search_url())
         self._robot_parser.set_url(robots_url)
         self._robot_parser.read()
 
@@ -84,6 +88,10 @@ class ImagesCrawler(Crawler):
     @property
     def playwright(self):
         return self._playwright
+
+    @property
+    def search_service(self):
+        return self._search_service
 
     @staticmethod
     def _get_robots_url(site_url: str) -> str:
@@ -131,15 +139,18 @@ class ImagesCrawler(Crawler):
             logging.info(f"Crawling disallowed by robots.txt on {self._host}")
             return
 
-        await self.page.goto(self.host)
-        await self.page.get_by_role("searchbox", name="Enter your search term").click()
-        await self.page.get_by_role("searchbox", name="Enter your search term").fill(f"{query} {self.cr_type.value}")
-        await self.page.get_by_role("searchbox", name="Enter your search term").press("Enter")
+        # await self.page.goto(self.host)
+        # await self.page.wait_for_selector("input[name='q']", timeout=30000)
+        # await self.page.fill("input[name='q']", f"{query} {self.cr_type.value}")
+        # await self.page.press("input[name='q']", "Enter")
+        await self.search_service.navigate_host()
+        await self.search_service.search_query(f"{query} {self.cr_type.value}")
+        page1 = await self.search_service.click_obj_filter(self.cr_type.value)
 
-        async with self.page.expect_popup() as page1_info:
-            await self.page.get_by_label("Search Filter").get_by_role("link", name=self.cr_type.value).click()
-        page1 = await page1_info.value
-        await page1.wait_for_selector('#b_content')
+        # async with self.page.expect_popup() as page1_info:
+        #     await self.page.locator(f'//nav[@class="b_scopebar"]/ul/li[@id="b-scopeListItem-{self.cr_type.value.lower()}"]/a').click()
+        # page1 = await page1_info.value
+        # await page1.wait_for_selector('#b_content')
         await asyncio.sleep(5)
 
         prev_content = await page1.content()

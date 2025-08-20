@@ -1,4 +1,5 @@
 __all__ = [
     "crawler",
-    "html_parser"
+    "html_parser",
+    "search_services"
 ]

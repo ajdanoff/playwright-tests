@@ -10,7 +10,7 @@ parser = argparse.ArgumentParser(
         description='A simple image crawler written in python using PlayWright',
         epilog='The Song of the Bell'
     )
-parser.add_argument('-hs', '--host', type=str, default='https://bing.com', help='a host to crawl')
+parser.add_argument('-hs', '--host', type=str, default='bing.com', help='a host to crawl')
 parser.add_argument('-qr', '--query', type=str, default='spiders', help='a query to search for')
 parser.add_argument('-ns', '--nscrolls', type=int, default=5, help='number of frame scrolls')
 parser.add_argument('-dd', '--ddir', type=str, default='./data', help='directory to save images')
