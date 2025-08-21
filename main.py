@@ -6,14 +6,15 @@ import argparse
 from crawler.crawler import ImagesCrawler
 
 parser = argparse.ArgumentParser(
-        prog='MagicFlute',
-        description='A simple image crawler written in python using PlayWright',
-        epilog='The Song of the Bell'
-    )
+    prog='MagicFlute',
+    description='A simple image crawler written in python using PlayWright',
+    epilog='The Song of the Bell'
+)
 parser.add_argument('-hs', '--host', type=str, default='bing.com', help='a host to crawl')
 parser.add_argument('-qr', '--query', type=str, default='spiders', help='a query to search for')
 parser.add_argument('-ns', '--nscrolls', type=int, default=5, help='number of frame scrolls')
 parser.add_argument('-dd', '--ddir', type=str, default='./data', help='directory to save images')
+parser.add_argument('-mnims', '--minimsize', type=int, default=8000, help='min image size to save')
 
 
 async def run(playwright: Playwright, **kwargs):
@@ -25,12 +26,16 @@ async def run(playwright: Playwright, **kwargs):
     await context.close()
     await browser.close()
 
+
 async def main() -> None:
     args = parser.parse_args()
-    kwargs = {'host': args.host, 'query': args.query, 'data_dir': args.ddir, 'num_scrolls': args.nscrolls}
+    kwargs = {
+        'host': args.host, 'query': args.query, 'data_dir': args.ddir, 'num_scrolls': args.nscrolls,
+        'min_imsize': args.minimsize}
 
     async with async_playwright() as playwright:
         await run(playwright, **kwargs)
+
 
 if __name__ == "__main__":
     asyncio.run(main())

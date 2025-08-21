@@ -26,8 +26,8 @@ div.scrollBy(0, window.innerHeight);
 """
 IMAGE_FORMATS = ["webp", "png", "jpeg", "tiff", "webp"]
 
-class Crawler(ABC):
 
+class Crawler(ABC):
     _cr_type: CrawlerType
 
     def __init__(self, cr_type: CrawlerType):
@@ -43,7 +43,6 @@ class Crawler(ABC):
 
 
 class ImagesCrawler(Crawler):
-
     _page: Page
     _playwright: Playwright
     _host: str
@@ -109,7 +108,7 @@ class ImagesCrawler(Crawler):
             return img[1]
         return None
 
-    def request_download(self, src, meta, folder):
+    def request_download(self, src, meta, folder, min_im_size=8000):
         folder_path = f"{self.data_folder}/{folder}"
         if not os.path.exists(folder_path):
             os.makedirs(folder_path, exist_ok=True)
@@ -121,7 +120,7 @@ class ImagesCrawler(Crawler):
         if response.status_code == 200:
             print(response.headers)
             ext = self.is_image(response.headers['Content-Type'])
-            if ext and int(response.headers['Content-Length']) > 8000:
+            if ext and int(response.headers['Content-Length']) > min_im_size:
                 safe_name = hashlib.md5(str(meta).encode()).hexdigest()
                 loc_file = f"{folder_path}/{safe_name}.{ext}"
                 with open(loc_file, 'wb') as f:
@@ -133,28 +132,20 @@ class ImagesCrawler(Crawler):
         return None
 
     async def crawl(self, **kwargs):
-        num_scrolls, query = await self.extract_args(kwargs)
+        num_scrolls, query, min_im_size = await self.extract_args(kwargs)
 
         if not self._can_crawl(self._host):
             logging.info(f"Crawling disallowed by robots.txt on {self._host}")
             return
 
-        # await self.page.goto(self.host)
-        # await self.page.wait_for_selector("input[name='q']", timeout=30000)
-        # await self.page.fill("input[name='q']", f"{query} {self.cr_type.value}")
-        # await self.page.press("input[name='q']", "Enter")
         await self.search_service.navigate_host()
         await self.search_service.search_query(f"{query} {self.cr_type.value}")
         page1 = await self.search_service.click_obj_filter(self.cr_type.value)
 
-        # async with self.page.expect_popup() as page1_info:
-        #     await self.page.locator(f'//nav[@class="b_scopebar"]/ul/li[@id="b-scopeListItem-{self.cr_type.value.lower()}"]/a').click()
-        # page1 = await page1_info.value
-        # await page1.wait_for_selector('#b_content')
         await asyncio.sleep(5)
 
         prev_content = await page1.content()
-        await self.parse_download(page1, prev_content, query)
+        await self.parse_download(page1, prev_content, query, min_im_size)
 
         for i in range(num_scrolls):
             await page1.keyboard.press("PageDown", delay=1000)
@@ -165,7 +156,7 @@ class ImagesCrawler(Crawler):
             self.ihp.srcs.clear()
             content = await page1.content()
             assert content != prev_content
-            await self.parse_download(page1, prev_content, query)
+            await self.parse_download(page1, prev_content, query, min_im_size)
         # await page1.screenshot(path=f"{query}.png")
 
     async def _respect_crawl_delay(self):
@@ -173,26 +164,23 @@ class ImagesCrawler(Crawler):
             logging.info(f"Respecting crawl-delay of {self._crawl_delay} seconds")
             await asyncio.sleep(self._crawl_delay)
 
-
-    async def parse_download(self, page1, content, query):
+    async def parse_download(self, page1, content, query, min_im_size=8000):
         self.ihp.srcs.clear()
         self.ihp.feed(content)
         srcs = copy.deepcopy(self.ihp.srcs)
         for src, meta in srcs.items():
-            if self.request_download(src, meta, f"{query}"):
-                if 'data-bm' in meta:
-                    # lihp = ImgHTMLParser()
+            if self.request_download(src, meta, f"{query}", min_im_size):
+                if self.search_service.test_id_attr in meta:
                     try:
-                        await page1.get_by_test_id(meta['data-bm']).click()
+                        await page1.get_by_test_id(meta[self.search_service.test_id_attr]).click()
                         await asyncio.sleep(1)
                         l_content = await page1.content()
                         self.ihp.srcs.clear()
                         self.ihp.feed(l_content)
                         if self.ihp.srcs:
                             for lsrc, lmeta in self.ihp.srcs.items():
-                                self.request_download(lsrc, lmeta, f"{query}")
-                        await page1.locator("iframe[id=\"OverlayIFrame\"]").content_frame.get_by_label(
-                            "Close image").click()
+                                self.request_download(lsrc, lmeta, f"{query}", min_im_size)
+                        await self.search_service.click_frame_close()
                         await asyncio.sleep(1)
                     except TimeoutError as te:
                         logging.getLogger().info("timeout error: %s", te)
@@ -201,4 +189,5 @@ class ImagesCrawler(Crawler):
     async def extract_args(kwargs):
         query = kwargs.get("query", "butterfly")
         num_scrolls = kwargs.get("num_scrolls", 5)
-        return num_scrolls, query
+        min_im_size = kwargs.get("min_imsize", 8000)
+        return num_scrolls, query, min_im_size

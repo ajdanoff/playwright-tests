@@ -26,12 +26,14 @@ class SearchService(ABC):
     _page: Page
     _schema: str
     _test_id_attr: str
+    _visited: list[Page]
 
     def __init__(self, page: Page, host: str, schema: str = "https", test_id_attr: str = ""):
         self._host = host
         self._page = page
         self._schema = schema
         self._test_id_attr = test_id_attr
+        self._visited = []
 
     @property
     def host(self):
@@ -49,6 +51,10 @@ class SearchService(ABC):
     def test_id_attr(self):
         return self._test_id_attr
 
+    @property
+    def visited(self):
+        return self._visited
+
     async def navigate_host(self):
         await self.page.goto(self.search_url())
 
@@ -59,6 +65,10 @@ class SearchService(ABC):
     @abstractmethod
     async def click_obj_filter(self, search_obj_type: str) -> Page:
         raise NotImplementedError("'click_obj_filter' is not implemented !")
+
+    @abstractmethod
+    async def click_frame_close(self):
+        raise NotImplementedError("'click_frame_close' is not implemented !")
 
     def search_url(self):
         return f"{self.schema}://{self.host}"
@@ -81,6 +91,7 @@ class GoogleService(SearchService):
                     f'//nav[@class="b_scopebar"]/ul/li[@id="b-scopeListItem-{search_obj_type.lower()}"]/a').click()
             page1 = await page1_info.value
             await page1.wait_for_selector('#b_content')
+            self._visited.append(page1)
             return page1
         except Exception as e:
             logging.error(f"Error clicking {search_obj_type} filter link: {e}")
@@ -90,6 +101,8 @@ class GoogleService(SearchService):
                 f.write(content)
             raise
 
+    async def click_frame_close(self):
+        await self._visited[-1].locator("iframe[id=\"OverlayIFrame\"]").content_frame.get_by_label("Close image").click()
 
 class BingService(GoogleService):
 
