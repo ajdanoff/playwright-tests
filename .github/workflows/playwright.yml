@@ -1,4 +1,4 @@
-name: Playwright Tests Headed Mode
+name: Playwright and Pytest Tests
 
 on:
   push:
@@ -35,11 +35,17 @@ jobs:
           Xvfb :99 -screen 0 1280x720x24 &
           echo "DISPLAY=:99" >> $GITHUB_ENV
 
-      - name: Run tests in headed mode
+      - name: Run pytest tests in 'tests' directory
         env:
           DISPLAY: :99
         run: |
-          pytest
+          pytest tests --maxfail=1 --disable-warnings -q
+
+      - name: Run Playwright tests in headed mode from 'tests' subfolder
+        env:
+          DISPLAY: :99
+        run: |
+          npx playwright test tests --headed
 
       - name: Upload Playwright traces
         uses: actions/upload-artifact@v4
