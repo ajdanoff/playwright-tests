@@ -276,9 +276,10 @@ class ImagesCrawler(Crawler):
             return
 
         await self.search_service.navigate_host()
+        await asyncio.sleep(5)
         await self.search_service.search_query(f"{query} {self.cr_type.value}")
+        await asyncio.sleep(5)
         page1 = await self.search_service.click_obj_filter(self.cr_type.value)
-
         await asyncio.sleep(5)
 
         prev_content = await page1.content()

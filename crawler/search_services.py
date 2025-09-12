@@ -164,21 +164,26 @@ class GoogleService(SearchService):
         Returns:
             Page: New Playwright page after clicking filter.
         """
+        page1 = None
         try:
             async with self.page.expect_popup() as page1_info:
                 await self.page.locator(
                     f'//nav[@class="b_scopebar"]/ul/li[@id="b-scopeListItem-{search_obj_type.lower()}"]/a').click(timeout=1000)
             page1 = await page1_info.value
             await page1.wait_for_selector('#b_content')
-            self._visited.append(page1)
-            return page1
+
         except Exception as e:
             logging.error(f"Error clicking {search_obj_type} filter link: {e}")
             await self.page.screenshot(path=f"error_{search_obj_type}_filter_click.png")
             content = await self.page.content()
             with open("error_page_content.html", "w") as f:
                 f.write(content)
+        finally:
+            if page1 is None:
+                page1 = self.page
             # raise
+            self._visited.append(page1)
+            return page1
 
     async def click_frame_close(self, timeout=1000):
         """
