@@ -89,7 +89,7 @@ class SearchService(ABC):
         """
         Navigate Playwright page to the base search URL (schema + host).
         """
-        await self.page.goto(self.search_url())
+        await self.page.goto(self.search_url(), wait_until="networkidle")
 
     @abstractmethod
     async def search_query(self, query):
@@ -212,14 +212,16 @@ class BingService(GoogleService):
         """
         super().__init__(page, "bing.com")
 
-    async def search_query(self, query: str):
+    async def search_query(self, query: str, timeout: int=60000):
         """
         Fill search input, submit the query for Bing, and wait for results.
 
         Args:
             query (str): Search keyword string.
+            timeout (int): Timeout to wait for selector.
         """
-        await self.page.wait_for_selector("input[name='q']", timeout=30000)
+        await self.page.wait_for_selector("input[name='q']", timeout=timeout)
         await self.page.fill("input[name='q']", query)
         await self.page.press("input[name='q']", "Enter")
+        # await self.page.reload()
 

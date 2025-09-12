@@ -11,7 +11,7 @@ from crawler.crawler import ImagesCrawler  # Replace with your actual import pat
 @pytest.mark.asyncio
 async def test_crawl_basic(host, data_folder, query, label, num_scrolls, min_im_size):
     async with async_playwright() as playwright:
-        browser = await playwright.chromium.launch(headless=False)  # headed mode enabled
+        browser = await playwright.chromium.launch(headless=True)  # headed mode enabled
         context = await browser.new_context()
         page = await context.new_page()
 
